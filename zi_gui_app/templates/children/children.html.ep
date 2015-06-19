@@ -1,0 +1,19 @@
+% layout 'default';
+% title 'Children';
+
+% foreach my $child (@$children) {
+<ul>
+    % foreach my $key (sort keys(%$child)) {
+        <li> <%= $key %>: 
+            % if ($key =~ /image/) {
+                <a href= <%= url_for("/images/$$child{$key}")->query(format=>'html')->to_abs() %> >
+                    <%= $$child{$key} %> 
+                </a>
+            % }
+            % else {
+                <%= $$child{$key} %> 
+            % }
+        </li>
+    % }
+</ul>
+% }

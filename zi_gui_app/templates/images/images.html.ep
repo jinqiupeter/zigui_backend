@@ -1,0 +1,8 @@
+% layout 'default';
+% title 'Images';
+
+% foreach my $path(@$image_paths) {
+<ul> 
+    <img src=<%= url_for("/images/$path/file")->to_abs() %> />
+</ul>
+% }

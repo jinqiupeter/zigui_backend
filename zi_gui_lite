@@ -1,0 +1,107 @@
+#!/usr/bin/env perl
+use Mojolicious::Lite;
+use MongoDB;
+use DateTime::Tiny;
+use feature 'say';
+use Encode;
+binmode STDOUT, ":encoding(UTF-8)";
+use Data::Dumper;
+
+# init global MongoDB variables
+my $client = MongoDB::MongoClient->new;
+$client->dt_type( 'DateTime::Tiny' );
+my $db = $client->get_database('BaoBeiHuiJia');
+my $lost_children = $db->get_collection('lost_children');
+my $homeless_children = $db->get_collection('homeless_children');
+my $images = $db->get_collection('images');
+
+# Documentation browser under "/perldoc"
+plugin 'PODRenderer';
+
+get '/(:type)_children' => sub {
+	my $c = shift;
+	my $skip = $c->param('skip') || 0;	
+	my $count = $c->param('count') || 10;	
+	my $format = $c->param('format') || 'json';	
+	my $query = $c->param('query') || '';	
+	my $type = $c->stash('type');
+	my $cl = ($type =~ /lost/i) ? $lost_children : $homeless_children;
+
+	my $results = $cl->find({})->sort({'注册时间'=>-1})->limit($count)->skip($skip);
+	my $json_output = [];
+	my $html_output;
+	while (my $doc = $results->next) {
+		my $child = {};
+		$c->stash(title => $$doc{'姓名'});
+		while (my ($key, $value) = each %$doc) {
+			$child->{$key} = "$value";
+			$html_output .= "$key = $value\r\n";
+		}
+		push(@$json_output, $child);
+	}
+	$c->stash(content => $html_output);
+	if ($format eq 'json') {
+		$c->render(json => $json_output);
+	} else {
+		$c->render(template => 'index');
+	}
+};
+
+get '/images/:guid' => sub {
+	my $c = shift;
+	my $skip = $c->param('skip') || 0;	
+	my $count = $c->param('count') || 3;	
+	my $size = $c->param('size') || 'small';
+	my $format = $c->param('format') || 'json';	
+	my $guid = $c->stash('guid');
+	my $query = {};
+	if ($guid !~ /^$/) {
+		$guid =~ s/\/+//g;
+		$$query{guid} = $guid;
+	}
+
+#my $results = $images->find(\%query)->limit($count)->skip($skip);
+	say Dumper($query);
+	my $results = $images->find($query)->limit($count)->skip($skip);
+	say "total docs: " . $results->count;
+	my $json_output = [];
+	my $html_output;
+	while (my $doc = $results->next) {
+		my $image = {};
+		while (my ($key, $value) = each %$doc) {
+			$image->{$key} = $value;
+			$html_output .= "$key = $value\r\n";
+		}
+		push(@$json_output, $image);
+	}
+
+	# render
+	$c->stash(content => $html_output);
+	if ($format eq 'json') {
+		$c->render(json => $json_output);
+	} else {
+		$c->render(template => 'index');
+	}
+};
+
+get '/' => sub {
+	my $c = shift;
+	$c->render(text => 'Hello My Friend!!');
+};
+
+app->start;
+__DATA__
+
+@@ index.html.ep
+<!DOCTYPE html>
+<html>
+<head><title><%= $title %></title></head>
+<body><%= $content%></body>
+</html>
+
+@@ layouts/default.html.ep
+<!DOCTYPE html>
+<html>
+<head><title><%= $title %></title></head>
+<body><%= $content%></body>
+</html>
